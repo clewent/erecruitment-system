@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>eRecruitment - Service Consultant</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+</head>
+<body>
+  <h1>eRecruitment System: Service Consultant Application</h1>
+  
+  <input type="file" id="cvUpload" accept=".pdf,.docx" />
+  <button onclick="processCV()">Submit CV</button>
+  
+  <div id="result"></div>
+
+  <script>
+    async function processCV() {
+      const fileInput = document.getElementById('cvUpload');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please upload a CV.');
+        return;
+      }
+
+      const fileType = file.name.split('.').pop().toLowerCase();
+      let textContent = '';
+
+      if (fileType === 'pdf') {
+        const fileReader = new FileReader();
+        fileReader.onload = async function() {
+          const typedarray = new Uint8Array(this.result);
+          const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map(item => item.str);
+            text += strings.join(' ') + ' ';
+          }
+          evaluateCV(text);
+        };
+        fileReader.readAsArrayBuffer(file);
+      } else if (fileType === 'docx') {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          mammoth.extractRawText({ arrayBuffer: event.target.result })
+            .then(result => evaluateCV(result.value))
+            .catch(err => document.getElementById('result').innerText = 'Error reading DOCX.');
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        alert('Unsupported file type. Please upload a PDF or DOCX.');
+      }
+    }
+
+    function evaluateCV(text) {
+      text = text.toLowerCase();
+
+      const hasMatric = /matric|grade 12/.test(text);
+      const hasBusinessQual = /business|management|commerce|bcom/.test(text);
+      const hasExperience = /(2|two)[-– ]?(to|–)?[-– ]?(3|three)?\s+(years|yrs)?\s+(experience)?.*(client service|call centre|call center)/.test(text);
+
+      let score = 0;
+      if (hasMatric) score++;
+      if (hasBusinessQual) score++;
+      if (hasExperience) score++;
+
+      let resultMsg = `<h3>Results:</h3><ul>`;
+      resultMsg += `<li>Matric: ${hasMatric ? '✅' : '❌'}</li>`;
+      resultMsg += `<li>Business-related Qualification: ${hasBusinessQual ? '✅' : '❌'}</li>`;
+      resultMsg += `<li>Client Service/Call Centre Experience (2–3 yrs): ${hasExperience ? '✅' : '❌'}</li>`;
+      resultMsg += `</ul>`;
+
+      if (score === 3) {
+        resultMsg += `<strong style="color: green;">✅ You are a perfect fit for the Service Consultant position!</strong>`;
+      } else if (score === 2) {
+        resultMsg += `<strong style="color: orange;">⚠️ You meet most requirements. Consider adding more experience or qualifications.</strong>`;
+      } else {
+        resultMsg += `<strong style="color: red;">❌ Unfortunately, you do not meet the core requirements for this position.</strong>`;
+      }
+
+      document.getElementById('result').innerHTML = resultMsg;
+    }
+  </script>
+</body>
+</html>
